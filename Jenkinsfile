@@ -2,9 +2,8 @@ pipeline {
    agent any
 
    environment {
-     // You must set the following environment variables
-     // ORGANIZATION_NAME
-     // YOUR_DOCKERHUB_USERNAME (it doesn't matter if you don't have one)
+     YOUR_DOCKERHUB_USERNAME="abbi1680"
+        ORGANIZATION_NAME="my-k8s-lab-organisation"
      
      SERVICE_NAME = "fleetman-webapp"
      REPOSITORY_TAG="${YOUR_DOCKERHUB_USERNAME}/${ORGANIZATION_NAME}-${SERVICE_NAME}:${BUILD_ID}"
@@ -14,20 +13,35 @@ pipeline {
       stage('Preparation') {
          steps {
             cleanWs()
-            git credentialsId: 'GitHub', url: "https://github.com/${ORGANIZATION_NAME}/${SERVICE_NAME}"
+            git credentialsId: 'github_key', url: "https://github.com/${ORGANIZATION_NAME}/${SERVICE_NAME}"
          }
       }
-      stage('Build') {
-         steps {
-            sh 'echo No build required for Webapp.'
-         }
-      }
+      
+      
+      stage('Build Docker Image') {
+            steps {
+                script {
+                    app = docker.build("${REPOSITORY_TAG}")
+                    app.inside {
+                        sh 'echo Docker image is built'
+                    }
+                }
+            }
+        }
 
-      stage('Build and Push Image') {
-         steps {
-           sh 'docker image build -t ${REPOSITORY_TAG} .'
-         }
-      }
+    stage('Push Docker Image to docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker_hub_login') {
+                      app.push("${BUILD_ID}")
+   
+                        app.push("latest")
+                        
+                    }
+                }
+            }
+        }
+      
 
       stage('Deploy to Cluster') {
           steps {
